@@ -1,0 +1,47 @@
+{
+  "name": "@cordango/web-controls",
+  "version": "0.1.0-alpha.0",
+  "description": "Generic Vue 3 + Vuetify controls shared by Cordango Platform and generated standalone applications.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cordango/web-controls.git"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/cordango-web-controls.cjs",
+  "module": "./dist/cordango-web-controls.js",
+  "exports": {
+    ".": {
+      "import": "./dist/cordango-web-controls.js",
+      "require": "./dist/cordango-web-controls.cjs"
+    },
+    "./styles": "./dist/style.css"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "scripts": {
+    "build": "vite build",
+    "test": "node --test src/**/*.test.js"
+  },
+  "peerDependencies": {
+    "vue": "^3.5.0",
+    "vue-i18n": "^11.0.0",
+    "vuetify": "^4.1.0"
+  },
+  "dependencies": {
+    "chart.js": "^4.5.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.1.1",
+    "vue": "^3.5.39",
+    "vue-i18n": "^11.4.8",
+    "vuetify": "^4.1.2"
+  }
+}
