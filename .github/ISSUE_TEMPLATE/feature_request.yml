@@ -1,0 +1,51 @@
+name: Feature request
+description: Something is missing
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to build that you cannot build today? Describe the situation rather than the feature — the best solution is often not the one either of us thought of first.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: Optional. If you know what you want it to look like, show it.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part
+      options:
+        - A component
+        - A composable or a pure module
+        - A host seam (people, media, route, table settings, toast)
+        - Formatting or localization
+        - Theming
+        - The package surface (exports, build, types)
+        - Documentation
+        - Something else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: opinion
+    attributes:
+      label: Would every business application want this?
+      description: This package holds building blocks that carry no product opinion. Anything that only makes sense in one application belongs in that application.
+      options:
+        - Yes, any application would need it
+        - Probably, but I am not sure
+        - No, but I think it is a special case worth making
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: Optional, and genuinely useful — a workaround tells us how much this hurts.

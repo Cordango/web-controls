@@ -3,6 +3,22 @@
   "version": "0.1.0-alpha.0",
   "description": "Generic Vue 3 + Vuetify controls shared by Cordango Platform and generated standalone applications.",
   "license": "Apache-2.0",
+  "author": "Cordango",
+  "homepage": "https://github.com/cordango/web-controls#readme",
+  "bugs": {
+    "url": "https://github.com/cordango/web-controls/issues"
+  },
+  "keywords": [
+    "cordango",
+    "vue",
+    "vue3",
+    "vuetify",
+    "components",
+    "data-table",
+    "kanban",
+    "low-code",
+    "business-applications"
+  ],
   "type": "module",
   "repository": {
     "type": "git",
@@ -27,7 +43,14 @@
   ],
   "scripts": {
     "build": "vite build",
-    "test": "node --test src/**/*.test.js"
+    "test": "node --test src/**/*.test.js",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "peerDependencies": {
     "vue": "^3.5.0",
