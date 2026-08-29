@@ -1,6 +1,6 @@
 {
   "name": "@cordango/web-controls",
-  "version": "0.1.4-alpha",
+  "version": "0.1.5-alpha",
   "description": "Generic Vue 3 + Vuetify controls shared by Cordango Platform and generated standalone applications.",
   "license": "Apache-2.0",
   "author": "Cordango",
