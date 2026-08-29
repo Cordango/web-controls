@@ -92,6 +92,29 @@ export const PLATFORM_THEMES = {
  *  bug, so it is worth pinning by name rather than by "the palette did not shrink". */
 export const STRUCTURAL_TOKENS = Object.keys(STRUCTURE.light)
 
+/**
+ * Every Vuetify theme token THIS PACKAGE's own component CSS reads — the contract a host theme has
+ * to satisfy before a control from here will render.
+ *
+ * Vuetify emits `--v-theme-X` only for a key that is PRESENT in the theme's `colors`. A declaration
+ * naming a variable that was never defined is invalid CSS, so the browser drops the whole
+ * declaration and reports nothing: the symptom is a meter with no track, a kanban column with no
+ * background, a data table with no border. It reads as a broken component rather than as a missing
+ * palette entry, which is why this is a list somebody can check rather than a thing to notice.
+ *
+ * `surface-2` and `outline` are the two that are NOT in Vuetify's default palette. Every other
+ * entry here comes free with any theme; those two a host has to add on purpose.
+ */
+export const HOST_THEME_TOKENS = [
+  'error',
+  'on-surface',
+  'outline',
+  'primary',
+  'surface',
+  'surface-2',
+  'warning',
+]
+
 export const MODES = ['light', 'dark']
 
 // Every token a tenant may override. `appbar-text` is in the list but has NO platform default, on

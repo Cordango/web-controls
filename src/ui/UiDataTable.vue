@@ -412,10 +412,20 @@ const grouping = useTableGrouping({
   ungroupedLabel: computed(() => props.ungroupedLabel), showEmpty: computed(() => props.showEmptyGroups),
 })
 const groupingOn = grouping.on
+// The rows a "container" is made of, for every question about ORDER — what a row's neighbours are,
+// what number an appended row should get, where a dropped row lands.
+//
+// In tree mode that is the top level, because subtrees order among themselves. Flat, it is simply
+// the rows, and `rootRows` is EMPTY there: `useTreeRows` builds nothing when it is disabled. Every
+// order calculation that reached for `rootRows` therefore answered from an empty list the moment the
+// table was not a tree — which was invisible while dragging was tree-only, and is exactly what would
+// have made a flat drag put every row at position 10.
+const siblingSource = computed(() => (props.tree ? rootRows.value : filteredRows.value))
+
 // The buckets this table currently shows: tree mode groups TOP-LEVEL rows (subtrees stay nested),
 // flat mode groups the filtered rows. Empty when the table isn't grouped.
 const buckets = computed(() => grouping.on.value
-  ? grouping.partition(props.tree ? rootRows.value : filteredRows.value)
+  ? grouping.partition(siblingSource.value)
   : [])
 
 const items = computed(() => {
@@ -487,10 +497,10 @@ function nextOrderFor(item) {
   if (!props.orderField) return null
   if (item._parentId != null) return maxOrder(childrenMap.value.get(item._parentId)) + 10
   if (grouping.on.value) {
-    const b = grouping.partition(rootRows.value).find(x => x.id === (item._groupId ?? null))
+    const b = grouping.partition(siblingSource.value).find(x => x.id === (item._groupId ?? null))
     return maxOrder(b?.rows) + 10
   }
-  return maxOrder(rootRows.value) + 10
+  return maxOrder(siblingSource.value) + 10
 }
 function submitAdd(item) {
   const key = draftKey(item)
@@ -504,7 +514,7 @@ function onRowClick(item) {
   if (!item._adder && !item._addGroup) emit('row-click', item._raw)
 }
 
-// --- drag & drop (tree mode): reorder / move across sections / drop-onto = nest --------------
+// --- drag & drop: reorder / move across sections / drop-onto = nest (tree only) -------------
 // Native HTML5 DnD off a per-row HANDLE (an input inside a draggable <tr> would fight text
 // selection — the handle sidesteps it, Asana-style). Rows are drop targets via row-props.
 // Zones per row rect: top/bottom 30% = insert before/after (join the target's container),
@@ -513,7 +523,16 @@ function onRowClick(item) {
 const dragId = ref(null)
 const dropTarget = ref(null)               // { id, zone: 'before' | 'after' | 'into' | 'group' }
 
-function canDrag(item) { return props.tree && !item._adder && !item._group && !item._addGroup }
+// Draggable wherever there is somewhere for a drag to WRITE. That is `tree` (a drop can re-parent)
+// or `orderField` (a drop can renumber) — and until now only the first, because this was built for
+// subtasks and the flat case was never revisited. A grouped list with a manual order is exactly the
+// Asana task list the `orderField` prop was added for: its own comment says "the move menu (and
+// later drag & drop) writes it", and this is that later.
+//
+// Nothing else needed generalising. Every drop already computes a section and an order and emits the
+// same `move`; only NESTING is tree-shaped, and the zone that does it is gated below.
+const dragEnabled = computed(() => props.tree || Boolean(props.orderField))
+function canDrag(item) { return dragEnabled.value && !item._adder && !item._group && !item._addGroup }
 function canJoin(dragged, parentId) {
   if (parentId == null) return true
   if (parentId === dragged.id || descendantIds(dragged.id).has(parentId)) return false
@@ -523,8 +542,8 @@ function canJoin(dragged, parentId) {
 }
 function containerSiblings(parentId, gid) {
   if (parentId != null) return childrenMap.value.get(parentId) ?? []
-  if (grouping.on.value) return grouping.partition(rootRows.value).find(b => b.id === (gid ?? null))?.rows ?? []
-  return rootRows.value
+  if (grouping.on.value) return grouping.partition(siblingSource.value).find(b => b.id === (gid ?? null))?.rows ?? []
+  return siblingSource.value
 }
 function onDragStart(e, item) {
   dragId.value = item.id
@@ -544,7 +563,10 @@ function onDragOver(e, item) {
     const t = item._raw
     const rect = e.currentTarget.getBoundingClientRect()
     const y = (e.clientY - rect.top) / rect.height
-    const intoOk = canJoin(dragged, t.id)
+    // Nesting is the one zone a flat list has no meaning for: with no parent field, "under this
+    // row" is not a place. So a flat table has two zones, before and after, over the whole row
+    // rather than a third of it each.
+    const intoOk = props.tree && canJoin(dragged, t.id)
     const joinOk = canJoin(dragged, t[props.parentField] ?? null)
     if (intoOk && y >= 0.3 && y <= 0.7) zone = 'into'
     else if (joinOk) zone = y < 0.5 ? 'before' : 'after'
@@ -624,7 +646,7 @@ function rowProps({ item }) {
   if (dragId.value != null && item.id === dragId.value) cls.push('ui-dt-dragging')
   if (dropTarget.value?.id === item.id) cls.push('ui-dt-drop-' + dropTarget.value.zone)
   const base = cls.length ? { class: cls.join(' ') } : {}
-  if (props.tree) {
+  if (dragEnabled.value) {
     base.onDragover = e => onDragOver(e, item)
     base.onDrop = e => onDrop(e, item)
     base.onDragleave = e => onDragLeave(e, item)
@@ -671,6 +693,8 @@ function subtreeHeight(id) {
   for (const r of childrenMap.value.get(id) ?? []) h = Math.max(h, 1 + subtreeHeight(r.id))
   return h
 }
+// Somewhere for a move to GO: another section to drop into, or a tree to re-parent within.
+const movable = computed(() => props.tree || (grouping.on.value && Boolean(props.groups?.length)))
 function isCurrentSection(item, gid) {
   return item._raw[props.parentField] == null && (item._raw[props.groupField] ?? null) === gid
 }
@@ -678,7 +702,7 @@ function moveToSection(item, gid) {
   const patch = { [props.groupField]: gid }
   if (item._raw[props.parentField] != null) patch[props.parentField] = null   // moving into a section promotes
   if (props.orderField) {
-    const b = grouping.partition(rootRows.value).find(x => x.id === gid)
+    const b = grouping.partition(siblingSource.value).find(x => x.id === gid)
     patch[props.orderField] = maxOrder(b?.rows) + 10
   }
   emit('move', item._raw, patch)
@@ -970,6 +994,13 @@ function cardSubtitle(item) { return recordSubtitle(item._raw, cardFields.value,
           <span class="ui-dt-tree-text" :class="{ 'ui-dt-done-text': isDone(item._raw) }">{{ item._raw[treeColKey] ?? '' }}</span>
         </div>
         <div v-else class="ui-dt-first">
+          <!-- The same handle the tree cell has. It lived only there because dragging did, and a
+               flat list with a manual order needs exactly the same grip: something to take hold of
+               that is not the row, so a drag never fights text selection or the row's own click. -->
+          <span v-if="canDrag(item)" class="ui-dt-handle" draggable="true" :title="$t('table.dragToMove')"
+            @dragstart="onDragStart($event, item)" @dragend="onDragEnd" @click.stop>
+            <v-icon icon="mdi-drag-vertical" size="16" />
+          </span>
           <UiAvatar v-if="imageField" :src="rowImage(item._raw)" :name="rowImageName(item._raw)"
             :size="30" square class="ui-dt-row-avatar" />
           <v-icon v-if="isDone(item._raw)" icon="mdi-check-circle" size="16" color="success" class="ui-dt-done-ic" />
@@ -1072,7 +1103,11 @@ function cardSubtitle(item) { return recordSubtitle(item._raw, cardFields.value,
 
       <template #item._actions="{ item }">
         <template v-if="!item._adder && !item._group && !item._addGroup">
-          <v-menu v-if="tree" location="bottom end">
+          <!-- The move menu, and NOT tree-only. It was, for the same reason the drag handle was:
+               both were built for subtasks. But its first half is about SECTIONS, and a flat grouped
+               list has those — moving a task to another section by pointing at it is the keyboard-
+               and touch-reachable half of the drag, and on a phone it is the only half. -->
+          <v-menu v-if="movable" location="bottom end">
             <template #activator="{ props: menuProps }">
               <v-btn v-bind="menuProps" icon="mdi-swap-vertical" size="x-small" variant="text" title="Move…" @click.stop />
             </template>
@@ -1087,9 +1122,13 @@ function cardSubtitle(item) { return recordSubtitle(item._raw, cardFields.value,
                 </v-list-item>
                 <v-divider class="my-1" />
               </template>
-              <v-list-item title="Make subtask of…" prepend-icon="mdi-subdirectory-arrow-right" @click="openSubtaskDialog(item)" />
-              <v-list-item v-if="item._raw[parentField] != null" :title="$t('table.convertToTopLevel')"
-                prepend-icon="mdi-arrow-top-left" @click="promote(item)" />
+              <!-- Re-parenting is the tree's own: without a parent field there is nothing to be a
+                   subtask OF, and the menu would offer a move with nowhere to go. -->
+              <template v-if="tree">
+                <v-list-item title="Make subtask of…" prepend-icon="mdi-subdirectory-arrow-right" @click="openSubtaskDialog(item)" />
+                <v-list-item v-if="item._raw[parentField] != null" :title="$t('table.convertToTopLevel')"
+                  prepend-icon="mdi-arrow-top-left" @click="promote(item)" />
+              </template>
             </v-list>
           </v-menu>
           <!-- Row commands, before edit: a domain action ("Publish") is the reason somebody came to
